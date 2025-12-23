@@ -16,19 +16,18 @@ export default function VolunteerPanel() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isScanning, setIsScanning] = useState(false);
   const [scannedUser, setScannedUser] = useState(null);
+  const isProcessing = useRef(false); // 👈 Lock to prevent multiple toasts/calls
   
   const scannerInstanceRef = useRef(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // 1. Volunteer Info Fetching
   const { data: volunteer, isError } = useQuery({
     queryKey: ['volunteer-info'],
     queryFn: () => apiClient.getVolunteerMe(),
     retry: false 
   });
 
-  // 2. Registrations Fetching (Live Sync)
   const { data: registrations = [], isLoading, isRefetching } = useQuery({
     queryKey: ['volunteer-registrations', volunteer?.assignedEventId],
     queryFn: async () => {
@@ -45,21 +44,17 @@ export default function VolunteerPanel() {
   const filteredRegistrations = useMemo(() => {
     return registrations.filter(reg => {
       const term = searchTerm.toLowerCase();
-      const matchesSearch = !searchTerm || 
+      return !searchTerm || 
         reg.userName.toLowerCase().includes(term) ||
         reg.userEmail.toLowerCase().includes(term) ||
         (reg.tokenId && reg.tokenId.toLowerCase().includes(term));
-
-      const matchesStatus = 
-        statusFilter === 'all' ||
-        (statusFilter === 'attended' && reg.isAttended) ||
-        (statusFilter === 'pending' && !reg.isAttended);
-
-      return matchesSearch && matchesStatus;
+    }).filter(reg => {
+      if (statusFilter === 'attended') return reg.isAttended;
+      if (statusFilter === 'pending') return !reg.isAttended;
+      return true;
     });
   }, [registrations, searchTerm, statusFilter]);
 
-  // 3. Scanner Control Functions
   const stopScanner = async () => {
     if (scannerInstanceRef.current) {
       try {
@@ -72,27 +67,30 @@ export default function VolunteerPanel() {
     setIsScanning(false);
   };
 
-  const startScanner = () => {
-    setIsScanning(true);
-    setScannedUser(null);
-  };
-
-  // 4. Mutations
+  // 4. Mutation with "Lock" logic
   const checkInMutation = useMutation({
     mutationFn: (tokenId) => apiClient.checkInRegistration(tokenId),
     onSuccess: (data) => {
       setScannedUser(data); 
       stopScanner();
       queryClient.invalidateQueries({ queryKey: ['volunteer-registrations'] });
-      new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play().catch(() => {});
-      toast({ title: "Verified!", description: `${data.userName} is now checked in.` });
+      
+      // Play sound
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.play().catch(() => {});
+      
+      toast({ title: "Check-in Successful" });
     },
     onError: (error) => {
-      toast({ variant: 'destructive', title: 'Invalid Ticket', description: error.message || "QR Code not recognized" });
+      toast({ variant: 'destructive', title: 'Error', description: error.message || "Invalid QR Code" });
     },
+    onSettled: () => {
+      // Release the lock after a small delay
+      setTimeout(() => { isProcessing.current = false; }, 1000);
+    }
   });
 
-  // 5. Full-Screen Scanner Logic
+  // 5. Scanner Logic
   useEffect(() => {
     if (isScanning && !scannedUser) {
       const scanner = new Html5Qrcode("qr-reader");
@@ -102,8 +100,7 @@ export default function VolunteerPanel() {
         fps: 20, 
         qrbox: (viewfinderWidth, viewfinderHeight) => {
             const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const qrboxSize = Math.floor(minEdge * 0.7);
-            return { width: qrboxSize, height: qrboxSize };
+            return { width: Math.floor(minEdge * 0.7), height: Math.floor(minEdge * 0.7) };
         },
         aspectRatio: window.innerHeight / window.innerWidth
       };
@@ -112,22 +109,20 @@ export default function VolunteerPanel() {
         { facingMode: "environment" }, 
         config,
         (decodedText) => {
+          // 👈 CRITICAL: If already processing or already have a result, do nothing
+          if (isProcessing.current || scannedUser) return;
+          
           const token = decodedText.includes('/') ? decodedText.split('/').pop() : decodedText;
-          if (token && !checkInMutation.isPending) {
+          if (token) {
+            isProcessing.current = true; // Lock it!
             checkInMutation.mutate(token);
           }
         },
         () => {} 
-      ).catch(err => {
-        console.error("Scanner Start Error", err);
-        setIsScanning(false);
-        toast({ variant: "destructive", title: "Camera Error", description: "Please allow camera permissions." });
-      });
+      ).catch(() => setIsScanning(false));
 
       return () => {
-        if (scannerInstanceRef.current) {
-          scanner.stop().catch(() => {});
-        }
+        if (scannerInstanceRef.current) scanner.stop().catch(() => {});
       };
     }
   }, [isScanning, scannedUser]);
@@ -137,40 +132,47 @@ export default function VolunteerPanel() {
     attended: registrations.filter((r) => r.isAttended).length,
   };
 
-  if (isError) return <VolunteerLayout><div className="p-10 text-center">Access Denied</div></VolunteerLayout>;
+  // 👈 VERIFICATION PAGE (The Green Success Screen)
+  if (scannedUser) {
+    return (
+      <VolunteerLayout>
+        <div className="flex items-center justify-center min-h-[80vh] px-4 animate-in fade-in zoom-in duration-300">
+          <Card className="glass border-emerald-500/50 shadow-2xl max-w-md w-full relative overflow-hidden">
+            <div className="absolute inset-0 bg-emerald-500/5" />
+            <CardContent className="pt-12 pb-12 text-center relative z-10">
+              <div className="w-24 h-24 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <CheckCircle2 className="w-16 h-16 text-emerald-600" />
+              </div>
+              <h2 className="text-3xl font-bold text-emerald-700 mb-2">Verified!</h2>
+              <p className="text-muted-foreground mb-8 text-sm">Check-in Successful for the event</p>
+              
+              <div className="bg-background/80 rounded-2xl p-6 mb-8 border border-emerald-100 shadow-sm backdrop-blur-sm">
+                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-[0.2em] mb-2">Attendee Name</p>
+                <p className="text-2xl font-bold text-foreground truncate">{scannedUser.userName}</p>
+                <div className="flex justify-center mt-4">
+                    <Badge className="bg-emerald-500 hover:bg-emerald-600 border-none font-mono">TOKEN: {scannedUser.tokenId}</Badge>
+                </div>
+              </div>
+
+              <Button size="lg" className="w-full h-14 text-lg font-bold shadow-lg rounded-xl" onClick={() => setScannedUser(null)}>
+                <ScanLine className="w-5 h-5 mr-2" /> Scan Next
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </VolunteerLayout>
+    );
+  }
 
   return (
     <VolunteerLayout>
-      {/* Custom Styles for Fullscreen & UI Fixes */}
       <style dangerouslySetInnerHTML={{ __html: `
-        .fullscreen-scanner {
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100vw !important;
-          height: 100vh !important;
-          z-index: 9999 !important;
-          background: black !important;
-        }
+        .fullscreen-scanner { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; background: black; }
         #qr-reader { width: 100% !important; height: 100% !important; border: none !important; }
         #qr-reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
-        
-        /* Blue text to White fix */
-        #qr-reader__status_span, #qr-reader__header_message, div[id^="qr-reader__dashboard_section"] {
-          color: white !important;
-        }
-        #qr-reader__camera_selection, #qr-reader__dashboard_section_csr button {
-          background: #333 !important; color: white !important; border-radius: 8px; border: 1px solid #555;
-          padding: 5px 10px; margin: 5px;
-        }
-
-        @keyframes scan {
-          0%, 100% { top: 0%; }
-          50% { top: 100%; }
-        }
-        .animate-scan-line {
-          animation: scan 2s linear infinite;
-        }
+        #qr-reader__status_span, #qr-reader__header_message { color: white !important; }
+        @keyframes scan { 0%, 100% { top: 0%; } 50% { top: 100%; } }
+        .animate-scan-line { animation: scan 2s linear infinite; }
       `}} />
 
       <div className="space-y-4 max-w-5xl mx-auto pb-24 px-2 pt-4">
@@ -180,7 +182,7 @@ export default function VolunteerPanel() {
             <div className="flex justify-between items-center mb-4">
                 <div>
                     <h1 className="text-xl font-bold text-foreground">Volunteer Console</h1>
-                    <p className="text-xs text-muted-foreground">Duty: {volunteer?.name}</p>
+                    <p className="text-xs text-muted-foreground font-medium italic">Duty: {volunteer?.name}</p>
                 </div>
                 <Badge className={isRefetching ? "animate-pulse bg-amber-500" : "bg-emerald-500"}>
                   {isRefetching ? "Syncing..." : "Live"}
@@ -208,49 +210,28 @@ export default function VolunteerPanel() {
             </div>
         </div>
 
-        {/* Fullscreen Scanner Modal */}
+        {/* Fullscreen Scanner */}
         {isScanning && (
           <div className="fullscreen-scanner flex flex-col items-center justify-center">
-            {/* Top Bar with Close Button */}
             <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-[10002] bg-gradient-to-b from-black/80 to-transparent">
-              <p className="text-white font-bold tracking-widest text-sm uppercase">QR Scanner</p>
-              <Button 
-                variant="destructive" 
-                size="icon" 
-                className="rounded-full w-12 h-12 shadow-2xl"
-                onClick={stopScanner}
-              >
-                <XCircle className="w-8 h-8" />
-              </Button>
+              <p className="text-white font-bold tracking-widest text-xs uppercase">QR Scanner Mode</p>
+              <Button variant="destructive" size="icon" className="rounded-full w-12 h-12" onClick={stopScanner}><XCircle className="w-8 h-8" /></Button>
             </div>
 
-            {/* Visual Frame Overlay */}
-            <div className="relative w-[280px] h-[280px] border-2 border-white/30 rounded-[40px] z-[10001] pointer-events-none overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-primary shadow-[0_0_15px_rgba(var(--primary),0.8)] animate-scan-line"></div>
-                {/* Corner Accents */}
+            <div className="relative w-[280px] h-[280px] border-2 border-white/20 rounded-[40px] z-[10001] pointer-events-none overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-primary shadow-[0_0_15px_#10b981] animate-scan-line"></div>
                 <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg"></div>
                 <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg"></div>
                 <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg"></div>
                 <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg"></div>
             </div>
 
-            <div className="absolute bottom-16 text-center z-[10001] px-10">
-                <p className="text-white/80 text-xs font-medium px-4 py-2 bg-white/10 backdrop-blur-xl rounded-full border border-white/10">
-                   Align attendee QR code inside the frame
-                </p>
-            </div>
-
             <div id="qr-reader" />
           </div>
         )}
 
-        {/* Search & Action Bar */}
         <div className="flex flex-col gap-3">
-          <Button
-            onClick={startScanner}
-            size="lg"
-            className="w-full h-14 shadow-lg text-lg font-bold rounded-2xl bg-primary hover:bg-primary/90 transition-transform active:scale-95"
-          >
+          <Button onClick={() => setIsScanning(true)} size="lg" className="w-full h-14 shadow-lg text-lg font-bold rounded-2xl">
             <Camera className="w-6 h-6 mr-2" /> Start Scanning
           </Button>
 
@@ -271,7 +252,7 @@ export default function VolunteerPanel() {
                     key={f}
                     variant={statusFilter === f ? 'secondary' : 'ghost'} 
                     size="icon"
-                    className={`w-10 h-9 rounded-lg ${statusFilter === f && f === 'attended' ? "text-emerald-600 bg-white shadow-sm" : ""}`}
+                    className={`w-10 h-9 rounded-lg ${statusFilter === f && f === 'attended' ? "text-emerald-600 bg-white" : ""}`}
                     onClick={() => setStatusFilter(f)}
                   >
                     {f === 'all' && <Users className="w-5 h-5" />}
@@ -283,25 +264,7 @@ export default function VolunteerPanel() {
           </div>
         </div>
 
-        {/* Scanned Success Preview */}
-        {scannedUser && !isScanning && (
-          <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-            <Card className="border-emerald-500/50 bg-emerald-500/10 rounded-2xl overflow-hidden backdrop-blur-sm">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/30">
-                  <CheckCircle2 className="text-white w-6 h-6" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-foreground truncate">{scannedUser.userName}</p>
-                  <p className="text-[10px] font-mono text-emerald-600 uppercase font-bold tracking-widest">Success Check-in</p>
-                </div>
-                <Button onClick={() => setScannedUser(null)} variant="ghost" size="sm" className="text-xs">Dismiss</Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* List Section */}
+        {/* Attendee List */}
         <Card className="border-border rounded-2xl overflow-hidden bg-card/30">
           <CardContent className="p-0">
               <div className="divide-y divide-border">
