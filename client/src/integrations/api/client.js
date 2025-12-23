@@ -129,10 +129,6 @@ class ApiClient {
     return this.request(`/events/${id}`, { method: 'DELETE' });
   }
 
-  async sendCertificates(eventId) {
-    return this.request(`/events/${eventId}/certificates/send`, { method: 'POST' });
-  }
-
   // ---------------------------------------------------------------------------
   // 👥 VOLUNTEERS & ADMIN
   // ---------------------------------------------------------------------------

@@ -17,8 +17,8 @@ export function AdminLayout({ children }) {
 
   if (isLoading) {
     return (
-      // Changed to bg-white for light mode loading screen
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      // Changed to 'bg-background' so it is White in Light Mode and Dark in Dark Mode
+      <div className="min-h-screen bg-background flex items-center justify-center transition-colors duration-300">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -30,18 +30,24 @@ export function AdminLayout({ children }) {
 
   return (
     <SidebarProvider>
-      {/* Main Wrapper: bg-gray-50 
-        This light gray background makes the White Sidebar and White Cards pop.
+      {/* Main Wrapper: 
+        - Light Mode: bg-gray-50 (Slightly off-white for contrast)
+        - Dark Mode: dark:bg-background (Deep dark color defined in index.css)
       */}
-      <div className="min-h-screen flex w-full bg-gray-50">
+      <div className="min-h-screen flex w-full bg-gray-50 dark:bg-background transition-colors duration-300">
         
         <AdminSidebar />
         
         <div className="flex-1 flex flex-col">
-          {/* Header: bg-white to match the Sidebar */}
-          <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-4 sticky top-0 z-10">
+          {/* Header: 
+            - Light: White bg + Gray Border
+            - Dark: Dark bg + Dark Border
+          */}
+          <header className="h-14 bg-white dark:bg-background border-b border-gray-200 dark:border-border flex items-center px-4 gap-4 sticky top-0 z-10 transition-colors duration-300">
             <SidebarTrigger />
-            <h1 className="text-lg font-semibold text-gray-900">Admin Dashboard</h1>
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-foreground">
+              Admin Dashboard
+            </h1>
           </header>
           
           {/* Main Content Area */}

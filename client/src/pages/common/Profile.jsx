@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, User, Lock, Mail, Shield, CheckCircle2, Eye, EyeOff, ArrowLeft } from "lucide-react"; // 👈 ArrowLeft added
+import { Loader2, Save, User, Lock, Mail, Shield, CheckCircle2, Eye, EyeOff, ArrowLeft } from "lucide-react"; 
 import { Helmet } from "react-helmet-async";
 
 export default function Profile() {
@@ -85,7 +85,7 @@ export default function Profile() {
 
   const Layout = user?.role === "admin" ? AdminLayout : VolunteerLayout;
 
-  if (!user) return <div className="p-10 text-center"><Loader2 className="animate-spin mx-auto" /></div>;
+  if (!user) return <div className="p-10 text-center"><Loader2 className="animate-spin mx-auto text-primary" /></div>;
 
   return (
     <Layout>
@@ -95,10 +95,10 @@ export default function Profile() {
 
       <div className="max-w-5xl mx-auto space-y-8 pb-10">
         
-        {/* 👇 Volunteer Back Button */}
+        {/* Volunteer Back Button */}
         {user.role === 'volunteer' && (
           <div className="pt-4">
-            <Button asChild variant="ghost" className="gap-2 pl-0 hover:bg-transparent hover:text-primary">
+            <Button asChild variant="ghost" className="gap-2 pl-0 hover:bg-transparent hover:text-primary text-muted-foreground">
               <Link to="/volunteer">
                 <ArrowLeft className="w-4 h-4" />
                 Back to Dashboard
@@ -109,7 +109,7 @@ export default function Profile() {
 
         {/* Header Section */}
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">My Profile</h1>
           <p className="text-muted-foreground">Manage your account settings and preferences.</p>
         </div>
 
@@ -117,14 +117,14 @@ export default function Profile() {
           
           {/* Left Column: User Card */}
           <div className="md:col-span-4 space-y-6">
-            <Card className="border-border/50 shadow-md">
+            <Card className="border-border shadow-sm bg-card">
               <CardContent className="pt-6 flex flex-col items-center text-center">
                 <Avatar className="w-24 h-24 mb-4 border-4 border-primary/10">
                   <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`} />
                   <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 
-                <h2 className="text-xl font-bold">{user.name}</h2>
+                <h2 className="text-xl font-bold text-foreground">{user.name}</h2>
                 <p className="text-sm text-muted-foreground mb-4">{user.email}</p>
                 
                 <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="uppercase tracking-widest px-3 py-1">
@@ -132,7 +132,7 @@ export default function Profile() {
                 </Badge>
 
                 {user.role === 'volunteer' && (
-                  <div className="mt-6 w-full bg-secondary/30 p-4 rounded-lg border border-border text-left">
+                  <div className="mt-6 w-full bg-secondary/50 p-4 rounded-lg border border-border text-left">
                     <div className="flex items-center gap-2 mb-2 text-primary font-semibold">
                       <Shield className="w-4 h-4" /> Volunteer Status
                     </div>
@@ -149,9 +149,9 @@ export default function Profile() {
           <div className="md:col-span-8 space-y-6">
             
             {/* 1. General Information Form */}
-            <Card className="border-border/50 shadow-sm">
+            <Card className="border-border shadow-sm bg-card">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
+                <CardTitle className="text-lg flex items-center gap-2 text-foreground">
                   <User className="w-5 h-5 text-primary" /> General Information
                 </CardTitle>
                 <CardDescription>Update your public display name.</CardDescription>
@@ -166,7 +166,7 @@ export default function Profile() {
                         id="email" 
                         value={formData.email} 
                         disabled 
-                        className="pl-9 bg-muted text-muted-foreground cursor-not-allowed" 
+                        className="pl-9 bg-muted text-muted-foreground cursor-not-allowed border-border" 
                       />
                     </div>
                     <p className="text-[10px] text-muted-foreground">Email cannot be changed manually.</p>
@@ -180,7 +180,7 @@ export default function Profile() {
                         id="name" 
                         value={formData.name} 
                         onChange={(e) => setFormData({...formData, name: e.target.value})}
-                        className="pl-9"
+                        className="pl-9 bg-background border-border"
                         required
                       />
                     </div>
@@ -197,9 +197,9 @@ export default function Profile() {
             </Card>
 
             {/* 2. Security Form */}
-            <Card className="border-border/50 shadow-sm">
+            <Card className="border-border shadow-sm bg-card">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
+                <CardTitle className="text-lg flex items-center gap-2 text-foreground">
                   <Lock className="w-5 h-5 text-primary" /> Security
                 </CardTitle>
                 <CardDescription>Update your password to keep your account safe.</CardDescription>
@@ -217,7 +217,7 @@ export default function Profile() {
                         value={formData.currentPassword}
                         onChange={(e) => setFormData({...formData, currentPassword: e.target.value})}
                         required
-                        className="pr-10"
+                        className="pr-10 bg-background border-border"
                       />
                       <Button
                         type="button"
@@ -242,7 +242,7 @@ export default function Profile() {
                           value={formData.newPassword}
                           onChange={(e) => setFormData({...formData, newPassword: e.target.value})}
                           required
-                          className="pr-10"
+                          className="pr-10 bg-background border-border"
                         />
                         <Button
                           type="button"
@@ -266,7 +266,7 @@ export default function Profile() {
                           value={formData.confirmPassword}
                           onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
                           required
-                          className="pr-10"
+                          className="pr-10 bg-background border-border"
                         />
                          <Button
                           type="button"
@@ -282,7 +282,7 @@ export default function Profile() {
                   </div>
 
                   <div className="flex justify-end">
-                    <Button type="submit" variant="outline" disabled={isLoading}>
+                    <Button type="submit" variant="outline" disabled={isLoading} className="border-border hover:bg-secondary">
                       {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : <CheckCircle2 className="w-4 h-4 mr-2"/>}
                       Update Password
                     </Button>

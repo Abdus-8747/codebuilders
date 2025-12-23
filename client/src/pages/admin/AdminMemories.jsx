@@ -93,7 +93,7 @@ export default function AdminMemories() {
         
         {/* Header */}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Event Memories</h2>
+          <h2 className="text-2xl font-bold text-white">Event Memories</h2>
           <p className="text-gray-500">Upload photos for past events to display in the gallery.</p>
         </div>
 

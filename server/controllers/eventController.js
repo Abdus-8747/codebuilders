@@ -2,10 +2,6 @@ const Event = require("../models/Event");
 const Registration = require("../models/Registration"); 
 const fs = require('fs');
 const path = require('path');
-const { PDFDocument, rgb } = require('pdf-lib'); 
-const fontkit = require('@pdf-lib/fontkit');     
-const nodemailer = require('nodemailer');        
-const axios = require('axios');                  
 
 // @desc    Create an event
 // @route   POST /api/events
@@ -20,23 +16,13 @@ const createEvent = async (req, res) => {
       maxAttendees,
       status,
       isRegistrationEnabled,
-      isCertificateEnabled,
-      certNameX,
-      certNameY,
-      certFontSize,
-      certFontFamily,
-      mapUrl, // 👈 1. Extract mapUrl
+      mapUrl,
     } = req.body;
 
     let imageUrl = null;
-    let certificateTemplateUrl = null;
 
     if (req.files && req.files.image) {
       imageUrl = `/uploads/${req.files.image[0].filename}`;
-    }
-
-    if (req.files && req.files.certFile) {
-      certificateTemplateUrl = `/uploads/${req.files.certFile[0].filename}`;
     }
 
     const event = await Event.create({
@@ -48,14 +34,8 @@ const createEvent = async (req, res) => {
       maxAttendees,
       status,
       imageUrl,
-      mapUrl, // 👈 2. Save mapUrl to database
+      mapUrl,
       isRegistrationEnabled: isRegistrationEnabled === "true",
-      isCertificateEnabled: isCertificateEnabled === "true",
-      certificateTemplateUrl,
-      certNameX,
-      certNameY,
-      certFontSize,
-      certFontFamily: certFontFamily || "Helvetica", 
       memories: []
     });
 
@@ -78,7 +58,6 @@ const updateEvent = async (req, res) => {
       event.fullDescription = req.body.fullDescription || event.fullDescription;
       event.venue = req.body.venue || event.venue;
       
-      // 👇 3. Update mapUrl logic
       event.mapUrl = req.body.mapUrl || event.mapUrl;
 
       event.dateTime = req.body.dateTime || event.dateTime;
@@ -88,23 +67,11 @@ const updateEvent = async (req, res) => {
       if (req.body.isRegistrationEnabled !== undefined) {
          event.isRegistrationEnabled = req.body.isRegistrationEnabled === "true";
       }
-      if (req.body.isCertificateEnabled !== undefined) {
-         event.isCertificateEnabled = req.body.isCertificateEnabled === "true";
-      }
-
-      event.certNameX = req.body.certNameX || event.certNameX;
-      event.certNameY = req.body.certNameY || event.certNameY;
-      event.certFontSize = req.body.certFontSize || event.certFontSize;
-      event.certFontFamily = req.body.certFontFamily || event.certFontFamily;
 
       if (req.files && req.files.image) {
         event.imageUrl = `/uploads/${req.files.image[0].filename}`;
       }
       
-      if (req.files && req.files.certFile) {
-        event.certificateTemplateUrl = `/uploads/${req.files.certFile[0].filename}`;
-      }
-
       const updatedEvent = await event.save();
       res.json(updatedEvent);
     } else {
@@ -228,149 +195,6 @@ const deleteEventMemory = async (req, res) => {
   }
 };
 
-// ---------------------------------------------------------
-// 👇 CERTIFICATE GENERATION & EMAIL LOGIC
-// ---------------------------------------------------------
-
-// @desc    Send Certificates to all attendees
-// @route   POST /api/events/:id/certificates/send
-const sendCertificates = async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id);
-    if (!event) return res.status(404).json({ message: "Event not found" });
-
-    // 1. Find Registrations
-    const registrations = await Registration.find({
-      $or: [{ eventId: req.params.id }, { event: req.params.id }]
-    });
-    
-    if (registrations.length === 0) {
-      return res.status(400).json({ message: "No registrations found for this event." });
-    }
-
-    if (!event.certificateTemplateUrl) {
-      return res.status(400).json({ message: "No certificate template uploaded." });
-    }
-
-    const transporter = nodemailer.createTransport({
-      service: 'gmail', 
-      auth: {
-        user: process.env.EMAIL_USER, 
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    // 2. Load Resources
-    const templatePath = path.join(__dirname, '..', event.certificateTemplateUrl);
-    if (!fs.existsSync(templatePath)) {
-        return res.status(400).json({ message: "Template file missing on server." });
-    }
-    const templateImageBytes = fs.readFileSync(templatePath);
-
-    // Fetch Font
-    let fontBytes;
-    const fontFamily = event.certFontFamily || "Helvetica";
-    if (fontFamily.includes("Great Vibes")) {
-       try {
-         const fontUrl = 'https://github.com/google/fonts/raw/main/ofl/greatvibes/GreatVibes-Regular.ttf';
-         const response = await axios.get(fontUrl, { responseType: 'arraybuffer' });
-         fontBytes = response.data;
-       } catch (err) { console.error("Font fetch failed:", err); }
-    } 
-
-    let sentCount = 0;
-
-    for (const reg of registrations) {
-      const pdfDoc = await PDFDocument.create();
-      pdfDoc.registerFontkit(fontkit);
-
-      // Embed Image (Handle PNG vs JPG)
-      let image;
-      const isPng = event.certificateTemplateUrl.toLowerCase().endsWith('.png');
-      try {
-        image = isPng ? await pdfDoc.embedPng(templateImageBytes) : await pdfDoc.embedJpg(templateImageBytes);
-      } catch (e) {
-        try { image = isPng ? await pdfDoc.embedJpg(templateImageBytes) : await pdfDoc.embedPng(templateImageBytes); } 
-        catch (finalErr) { continue; }
-      }
-
-      // Get Actual Image Dimensions (e.g., 2000px width)
-      const { width, height } = image.scale(1);
-      const page = pdfDoc.addPage([width, height]);
-      page.drawImage(image, { x: 0, y: 0, width, height });
-
-      // Embed Font
-      let customFont;
-      if (fontBytes) customFont = await pdfDoc.embedFont(fontBytes);
-      else if (fontFamily.includes("Times")) customFont = await pdfDoc.embedFont("Times-Roman");
-      else if (fontFamily.includes("Courier")) customFont = await pdfDoc.embedFont("Courier");
-      else customFont = await pdfDoc.embedFont("Helvetica");
-
-      // -----------------------------------------------------------
-      // 🎯 EXACT POSITIONING LOGIC
-      // -----------------------------------------------------------
-      
-      // 1. Define Frontend Reference Width
-      // This MUST match the value in your React code (800)
-      const DESIGNER_WIDTH = 800; 
-
-      // 2. Calculate Scale (Real Image / Frontend Image)
-      const scale = width / DESIGNER_WIDTH;
-
-      // 3. Get Saved Coordinates (default to center if missing)
-      const savedX = event.certNameX !== undefined ? event.certNameX : 250;
-      const savedY = event.certNameY !== undefined ? event.certNameY : 250;
-      const savedFontSize = event.certFontSize || 30;
-
-      // 4. Calculate Final Values
-      const finalX = savedX * scale;
-      const finalFontSize = savedFontSize * scale;
-
-      // 5. Calculate Final Y (The most important part)
-      // PDF Y = Image Height - (Saved Top Position * Scale) - (Text Height Correction)
-      // We subtract ~80% of the font size to align the visual top-left (HTML) with baseline (PDF).
-      const finalY = height - (savedY * scale) - (finalFontSize * 0.8);
-
-      const attendeeName = reg.userName || reg.name || "Attendee";
-      const attendeeEmail = reg.userEmail || reg.email;
-
-      if (attendeeEmail) {
-        page.drawText(attendeeName, {
-          x: finalX,
-          y: finalY, 
-          size: finalFontSize,
-          font: customFont,
-          color: rgb(0, 0, 0),
-        });
-
-        const pdfBytes = await pdfDoc.save();
-
-        // 👇 UPDATED EMAIL CONTENT & FILENAME LOGIC
-        const fileName = `${attendeeName.replace(/ /g, "_")}_Certificate.pdf`;
-
-        await transporter.sendMail({
-          from: '"Code Builders Team" <no-reply@codebuilders.com>',
-          to: attendeeEmail,
-          subject: `Your Certificate for ${event.title}`, // Subject Line
-          text: `Hi ${attendeeName},\n\nThank you for attending ${event.title}. Please find your certificate attached.\n\nBest,\nThe Code Builders Team`,
-          attachments: [{
-            filename: fileName,
-            content: Buffer.from(pdfBytes),
-            contentType: 'application/pdf',
-          }],
-        });
-        sentCount++;
-      }
-    }
-
-    res.status(200).json({ message: `Sent ${sentCount} emails.` });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
 module.exports = { 
   createEvent, 
   updateEvent, 
@@ -379,6 +203,5 @@ module.exports = {
   deleteEvent,
   getEventMemories,
   uploadEventMemories,
-  deleteEventMemory,
-  sendCertificates 
+  deleteEventMemory
 };

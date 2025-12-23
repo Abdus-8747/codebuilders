@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route } from "react-router-dom"; 
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ThemeProvider } from "@/components/theme-provider"; // 👈 Import your Theme Provider
+import { ThemeProvider } from "@/components/theme-provider";
 
 import Index from "./pages/Index";
 import Events from "./pages/Events";
@@ -26,7 +26,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import TicketView from "./pages/TicketView";
 import AdminMemories from './pages/admin/AdminMemories';
-import CertificateDesigner from './pages/admin/CertificateDesigner';
+// ❌ CertificateDesigner import removed
 import Profile from './pages/common/Profile'; 
 import ForgotPassword from './pages/ForgotPassword';
 
@@ -34,7 +34,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme"> {/* 👈 Default is set to Dark */}
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <TooltipProvider>
         <AuthProvider>
           <Toaster />
@@ -60,7 +60,7 @@ const App = () => (
             {/* Admin routes */}
             <Route path="/admin" element={<AdminOverview />} />
             <Route path="/admin/events" element={<AdminEvents />} />
-            <Route path="/admin/events/:id/certificate" element={<CertificateDesigner />} />
+            {/* ❌ Certificate Designer Route removed */}
             <Route path="/admin/memories" element={<AdminMemories />} />
             <Route path="/admin/speakers" element={<AdminSpeakers />} />
             <Route path="/admin/registrations" element={<AdminRegistrations />} />

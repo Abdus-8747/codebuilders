@@ -35,10 +35,10 @@ export function AdminSidebar() {
   };
 
   return (
-    <Sidebar className="border-r border-gray-200 bg-white">
-      <SidebarContent className="bg-white">
+    <Sidebar className="border-r border-border bg-card">
+      <SidebarContent className="bg-card text-card-foreground">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-gray-500 font-semibold text-xs uppercase tracking-widest mb-4 mt-2">
+          <SidebarGroupLabel className="text-muted-foreground font-semibold text-xs uppercase tracking-widest mb-4 mt-2">
             Management
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -50,12 +50,18 @@ export function AdminSidebar() {
                       to={item.url}
                       end={item.url === '/admin'}
                       className={({ isActive }) => 
-                        `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium w-full transition-all duration-200 ${
+                        `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium w-full transition-all duration-200 text-white ${
                           isActive 
-                            /* Active State: Black Text (readable on Primary) */
-                            ? "bg-primary text-black shadow-md shadow-primary/25 hover:bg-primary/90" 
-                            /* Inactive State: Gray Text */
-                            : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                            /* Active State: 
+                               - Light: Primary bg, Primary-foreground text
+                               - Dark: Primary bg (bright), Black text (for contrast)
+                            */
+                            ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90" 
+                            /* Inactive State:
+                               - Light: Gray text, hover gray bg
+                               - Dark: Muted text, hover accent bg
+                            */
+                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                         }`
                       }
                     >
@@ -70,9 +76,9 @@ export function AdminSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-gray-100 p-4 bg-white space-y-4">
+      <SidebarFooter className="border-t border-border p-4 bg-card space-y-4">
         
-        {/* 👇 NEW: Profile Button */}
+        {/* Profile Button */}
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
@@ -81,8 +87,8 @@ export function AdminSidebar() {
                 className={({ isActive }) => 
                   `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium w-full border transition-colors ${
                     isActive 
-                    ? "border-primary bg-primary/10 text-primary" 
-                    : "border-gray-200 hover:bg-gray-50 text-gray-700"
+                      ? "border-primary bg-primary/10 text-primary" 
+                      : "border-border hover:bg-accent hover:text-accent-foreground text-muted-foreground"
                   }`
                 }
               >
@@ -94,15 +100,15 @@ export function AdminSidebar() {
         </SidebarMenu>
 
         <div className="flex flex-col gap-1">
-           <span className="text-xs font-medium text-gray-400 uppercase">Logged in as</span>
-           <span className="text-sm font-semibold text-gray-800 truncate" title={user?.email}>
+           <span className="text-xs font-medium text-muted-foreground uppercase">Logged in as</span>
+           <span className="text-sm font-semibold text-foreground truncate" title={user?.email}>
              {user?.email}
            </span>
         </div>
         
         <Button
           variant="outline"
-          className="w-full justify-start text-red-600 border-red-100 hover:bg-red-50 hover:text-red-700 hover:border-red-200"
+          className="w-full justify-start text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 dark:border-destructive/50"
           onClick={handleSignOut}
         >
           <LogOut className="w-4 h-4 mr-2" />

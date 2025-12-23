@@ -20,7 +20,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -30,11 +29,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Loader2, FileCheck, Send, Settings2, Ticket, Image as ImageIcon, MapPin } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Ticket, Image as ImageIcon, MapPin } from 'lucide-react';
 import { format, isPast } from 'date-fns'; 
-import { useNavigate } from 'react-router-dom';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -42,12 +39,9 @@ export default function AdminEvents() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const fileInputRef = useRef(null);
-  const certInputRef = useRef(null);
-  const navigate = useNavigate();
   
   // State for Toggles
   const [regEnabled, setRegEnabled] = useState(true);
-  const [certEnabled, setCertEnabled] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -91,12 +85,6 @@ export default function AdminEvents() {
       toast({ title: 'Event deleted successfully' });
     },
     onError: (error) => toast({ variant: 'destructive', title: 'Error', description: error.message }),
-  });
-
-  const sendCertificatesMutation = useMutation({
-    mutationFn: async (eventId) => await apiClient.sendCertificates(eventId),
-    onSuccess: () => toast({ title: 'Certificates sent successfully', description: 'Emails are being queued.' }),
-    onError: (error) => toast({ variant: 'destructive', title: 'Failed to send', description: error.message })
   });
 
   // --- HELPER: Parse Date for 12h Form ---
@@ -159,7 +147,7 @@ export default function AdminEvents() {
 
     // 2. Append Toggles
     formData.set('isRegistrationEnabled', String(regEnabled)); 
-    formData.set('isCertificateEnabled', String(certEnabled));
+    // removed certificate enabled append
 
     // 3. Calc Status
     const status = new Date(finalIsoString) < new Date() ? 'past' : 'upcoming';
@@ -175,7 +163,6 @@ export default function AdminEvents() {
   const openEditDialog = (event) => {
     setEditingEvent(event);
     setRegEnabled(event.isRegistrationEnabled ?? true);
-    setCertEnabled(event.isCertificateEnabled ?? false);
     setIsDialogOpen(true);
   };
 
@@ -183,7 +170,6 @@ export default function AdminEvents() {
     setIsDialogOpen(false);
     setEditingEvent(null);
     setRegEnabled(true);
-    setCertEnabled(false);
   };
 
   const getImageUrl = (path) => {
@@ -198,14 +184,13 @@ export default function AdminEvents() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Events</h2>
-            <p className="text-muted-foreground">Manage events and certificates</p>
+            <p className="text-muted-foreground">Manage events and registrations</p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => {
                 setEditingEvent(null);
                 setRegEnabled(true);
-                setCertEnabled(false);
               }}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Event
@@ -215,7 +200,7 @@ export default function AdminEvents() {
               <DialogHeader>
                 <DialogTitle>{editingEvent ? 'Edit Event' : 'Create Event'}</DialogTitle>
                 <DialogDescription>
-                  Configure event details and certificate settings.
+                  Configure event details and settings.
                 </DialogDescription>
               </DialogHeader>
               
@@ -257,7 +242,7 @@ export default function AdminEvents() {
                     <Textarea id="fullDescription" name="fullDescription" defaultValue={editingEvent?.fullDescription ?? ''} rows={4} />
                   </div>
 
-                  {/* 👇 UPDATED: 12-Hour Date & Time Picker */}
+                  {/* 12-Hour Date & Time Picker */}
                   <div className="grid grid-cols-2 gap-4">
                     
                     {/* Date Picker */}
@@ -347,67 +332,6 @@ export default function AdminEvents() {
                   </div>
                 </div>
 
-                {/* --- Certificate Settings --- */}
-                <div className="space-y-4 bg-secondary/20 p-4 rounded-lg border border-border">
-                    <div className="flex items-center justify-between border-b border-border pb-2">
-                      <h3 className="text-lg font-medium flex items-center gap-2">
-                        <FileCheck className="w-5 h-5 text-primary" />
-                        Certificate Settings
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          id="isCertificateEnabled"
-                          checked={certEnabled}
-                          onCheckedChange={setCertEnabled}
-                        />
-                        <Label htmlFor="isCertificateEnabled">Enable</Label>
-                      </div>
-                    </div>
-
-                    {certEnabled && (
-                      <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                        <div className="space-y-2">
-                          <Label htmlFor="certFile">Certificate Template (Image)</Label>
-                          <Input id="certFile" name="certFile" type="file" accept="image/*" ref={certInputRef} />
-                          <p className="text-xs text-muted-foreground">Upload a JPG/PNG without any name on it.</p>
-                          
-                          {editingEvent?.certificateTemplateUrl && (
-                             <div className="mt-3 p-2 bg-white rounded border border-gray-200">
-                               <div className="flex items-center gap-2 mb-2 text-green-600 text-xs font-semibold">
-                                 <FileCheck className="w-3 h-3"/> Active Template Loaded
-                               </div>
-                               <img src={getImageUrl(editingEvent.certificateTemplateUrl)} alt="Template" className="w-full h-auto max-h-32 object-contain" />
-                             </div>
-                          )}
-                        </div>
-                        
-                        {editingEvent ? (
-                          <div className="bg-white p-4 rounded border border-gray-200 text-center space-y-3 shadow-sm">
-                            <p className="text-sm text-gray-500">
-                              Use the visual designer to position the name and adjust the font.
-                            </p>
-                            <Button 
-                              type="button"
-                              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                              onClick={() => {
-                                setIsDialogOpen(false);
-                                navigate(`/admin/events/${editingEvent._id}/certificate`);
-                              }}
-                            >
-                              <Settings2 className="w-4 h-4 mr-2" />
-                              Open Certificate Designer
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded flex items-center gap-2">
-                             <Loader2 className="w-4 h-4" />
-                             Please save the event first to configure the certificate layout.
-                          </div>
-                        )}
-                      </div>
-                    )}
-                </div>
-
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={closeDialog}>Cancel</Button>
                   <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
@@ -435,7 +359,6 @@ export default function AdminEvents() {
                     <TableHead>Date & Time</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Registration</TableHead>
-                    <TableHead>Certificates</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -480,46 +403,8 @@ export default function AdminEvents() {
                               </Badge>
                             )}
                         </TableCell>
-
-                        <TableCell>
-                            {event.isCertificateEnabled ? (
-                              <Badge variant="outline" className="border-green-500 text-green-500 gap-1">
-                                <FileCheck className="w-3 h-3" /> Enabled
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-muted-foreground">Disabled</Badge>
-                            )}
-                        </TableCell>
                         
                         <TableCell className="text-right flex items-center justify-end gap-2">
-                          {event.isCertificateEnabled && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 border-primary/50 text-primary hover:bg-primary/10">
-                                    <Send className="w-3 h-3 mr-2" /> Send Certs
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Send Certificates?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Email certificates to all attendees of <b>{event.title}</b>?
-                                      <br/><br/>
-                                      <span className="text-xs text-amber-600 bg-amber-50 p-1 rounded">
-                                        ⚠️ Ensure you have registrations for this event ID.
-                                      </span>
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => sendCertificatesMutation.mutate(event._id)}>
-                                      Send Emails
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-
                           <Button variant="ghost" size="icon" onClick={() => openEditDialog(event)}>
                             <Pencil className="w-4 h-4" />
                           </Button>
