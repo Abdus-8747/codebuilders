@@ -47,7 +47,7 @@ app.use(cors({
 // Allows only 5 attempts every 15 minutes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, 
+  max: 100,
   message: { message: 'Too many login attempts from this IP, please try again after 15 minutes' }
 });
 
