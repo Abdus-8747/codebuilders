@@ -45,7 +45,6 @@ coverage
 *.log
 *.sqlite
 *.sqlite3
-uploads/
 # Temporary files
 tmp/
 temp/
