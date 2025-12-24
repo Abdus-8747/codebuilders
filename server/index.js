@@ -34,38 +34,48 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// 2. CORS Configuration (Dynamic)
+// 2. ✅ CORS Configuration (FIXED)
+// '*' ke sath credentials: true kaam nahi karta. Specific domains batane padte hain.
 app.use(cors({
-  origin: '*', // Allow all origins for simplicity; adjust as needed for production
-  credentials: true
+  origin: [
+    "http://localhost:5173",                   // Localhost Frontend
+    "https://codebuilders-events.vercel.app",  // Live Frontend (Update karein agar URL alag hai)
+    // Agar koi aur domain hai to yaha add karein
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  credentials: true // Ab ye kaam karega kyunki humne specific origin diya hai
 }));
 
 // 3. Rate Limiting Logic
 
-// A. Strict Limiter for Authentication (Prevents Brute Force)
-// Allows only 100 attempts every 15 minutes
+// A. Strict Limiter for Authentication
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000, 
   max: 100,
+  standardHeaders: true, 
+  legacyHeaders: false,
   message: { message: 'Too many login attempts from this IP, please try again after 15 minutes' }
 });
 
-// Apply Strict Limiter to Login and Forgot Password
+// Apply Strict Limiter
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/forgot-password", authLimiter);
 
 // B. Global Rate Limiting (General API usage)
-// Limit to 100 requests per 10 minutes
+// ⚠️ Maine limit badha di hai (1000) taaki testing ke dauran aap block na hon
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000, 
-  max: 100,
-  message: 'Too many requests from this IP, please try again after 10 minutes'
+  max: 1000, // Increased for development/testing
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests from this IP, please try again after 10 minutes' }
 });
-// Apply Global Limiter to all other API routes
+
+// Apply Global Limiter
 app.use("/api", limiter);
 
 
-// 4. Body Parser with Size Limit (Prevents DoS by large payloads)
+// 4. Body Parser
 app.use(express.json({ limit: "10kb" }));
 
 // 5. Data Sanitization against NoSQL Query Injection
