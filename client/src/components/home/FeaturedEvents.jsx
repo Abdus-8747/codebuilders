@@ -2,7 +2,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils"; 
 import { Link } from "react-router-dom";
 import { Calendar, MapPin, Users, ArrowRight, Loader2 } from "lucide-react";
-import { format, isValid, isPast, isToday } from "date-fns"; // ✅ isToday add kiya
+import { format, isValid, isPast, isToday } from "date-fns"; // ✅ isToday imported
 import { useFeaturedEvents } from "@/hooks/useEvents"; 
 
 const apiUrl = import.meta.env.VITE_API_URL;
@@ -29,25 +29,24 @@ export function FeaturedEvents() {
   };
 
   // ✅ FILTER & SORT LOGIC
-  // Sirf Today aur Future events rakhenge
   const upcomingEvents = events
     .filter((event) => {
         const rawDate = event.dateTime || event.date;
         const eventDateObj = new Date(rawDate);
-        // Agar date valid hai, aur (Future hai YA Today hai) to true return karo
-        // Note: isPast thoda strict hota hai, isliye isToday alag se check kiya
+        
+        // Logic: 
+        // 1. Date valid honi chahiye
+        // 2. Event PAST nahi hona chahiye OR Event TODAY hona chahiye
+        // (isPast time bhi check karta hai, isliye shaam ko subah ke event past na maane jaye, isliye isToday jaroori hai)
         return isValid(eventDateObj) && (!isPast(eventDateObj) || isToday(eventDateObj));
     })
     .sort((a, b) => {
-        // Nearest date pehle dikhao
+        // Nearest date pehle (Ascending Order)
         const dateA = new Date(a.dateTime || a.date);
         const dateB = new Date(b.dateTime || b.date);
         return dateA - dateB; 
     });
 
-  // Agar loading nahi hai aur events bhi nahi hai, to pura section hide karna hai ya sirf grid?
-  // User ne kaha: "events ke div ko hide karo & view all event vala button dikhao"
-  
   return (
     <section className="py-24 relative">
       <div className="container mx-auto px-4">
@@ -72,7 +71,7 @@ export function FeaturedEvents() {
           </div>
         )}
 
-        {/* ✅ Events Grid (Sirf tab dikhega jab upcomingEvents honge) */}
+        {/* ✅ Events Grid */}
         {!isLoading && upcomingEvents.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {upcomingEvents.map((event, index) => {
@@ -81,7 +80,7 @@ export function FeaturedEvents() {
               const eventDateObj = new Date(rawDate);
               const isDateValid = isValid(eventDateObj);
               
-              // Status Badge Logic
+              // ✅ Status Badge Logic
               const isHappeningToday = isToday(eventDateObj);
               const displayStatus = isHappeningToday ? "Happening Today" : "Upcoming";
 
@@ -109,7 +108,7 @@ export function FeaturedEvents() {
                       <span className={cn(
                         "px-3 py-1 rounded-full text-xs font-semibold uppercase",
                         isHappeningToday 
-                          ? "bg-green-600 text-white animate-pulse" // Today wala alag highlight
+                          ? "bg-green-600 text-white animate-pulse shadow-lg shadow-green-500/20" // Today Highlight
                           : "bg-primary/90 text-primary-foreground"
                       )}>
                         {displayStatus}
@@ -160,8 +159,7 @@ export function FeaturedEvents() {
             })}
           </div>
         ) : (
-            // ✅ Agar koi upcoming event nahi hai, to Grid hide ho jayega
-            // Aur ye message dikhega (Optional, aap isse hata bhi sakte ho)
+            // ✅ Empty State Message
             !isLoading && (
                 <div className="text-center py-8 mb-8">
                     <p className="text-muted-foreground">No upcoming events scheduled at the moment.</p>
@@ -169,7 +167,7 @@ export function FeaturedEvents() {
             )
         )}
 
-        {/* View All Button - Ye hamesha dikhega */}
+        {/* View All Button */}
         <div className="text-center">
           <Link to="/events">
             <Button variant="hero-outline" size="lg">
