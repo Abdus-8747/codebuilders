@@ -6,7 +6,17 @@ const contactSchema = mongoose.Schema(
     email: { type: String, required: true },
     subject: { type: String, required: true },
     message: { type: String, required: true },
-    status: { type: String, enum: ["new", "read", "replied"], default: "new" },
+    // ✅ Added isRead field to match the controller logic
+    isRead: { 
+      type: Boolean, 
+      default: false 
+    },
+    // Kept status for more granular tracking (new vs read vs replied)
+    status: { 
+      type: String, 
+      enum: ["new", "read", "replied"], 
+      default: "new" 
+    },
   },
   { timestamps: true }
 );
