@@ -11,6 +11,12 @@ const DEVELOPERS = [
   "chavdamayur01",
 ];
 
+const LinkedInURL = [
+  "https://www.linkedin.com/in/abdus-samad-shamsi/",
+  "https://www.linkedin.com/in/jainish-dabgar-87474a320/",
+  "https://www.linkedin.com/in/chavda-mayur-115594305/",
+]
+
 const REPO = {
   owner: "Abdus-8747",
   name: "FlowIQ",
@@ -119,7 +125,7 @@ const Developers = () => {
                         GitHub
                       </a>
                       <a
-                        href={dev.html_url}
+                        href={LinkedInURL[DEVELOPERS.indexOf(dev.login)]}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 transition ml-2"

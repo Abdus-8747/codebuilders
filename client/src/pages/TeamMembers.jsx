@@ -86,7 +86,7 @@ const TeamMembers = () => {
           {/* Error State */}
           {error && (
             <div className="text-center py-16">
-              <p className="text-destructive">Failed to load speakers.</p>
+              <p className="text-destructive">Failed to load team members.</p>
             </div>
           )}
 
